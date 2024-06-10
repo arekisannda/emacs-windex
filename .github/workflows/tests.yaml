@@ -1,0 +1,23 @@
+name: Windex tests
+on: [push, pull_request]
+jobs:
+  test-windex-states:
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs-version:
+          - 29.3
+          - 29.2
+          - 29.1
+    steps:
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs-version }}
+      - uses: actions/checkout@v2
+      - name: Emacs version
+        run: |
+          emacs --version
+      - name: Run state tests
+        run: |
+          make test-state
