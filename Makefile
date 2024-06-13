@@ -4,8 +4,12 @@ ELCFILES = $(ELFILES:.el=.elc)
 
 all: test-state
 
+.PHONY: clean
+clean: $(ELCFILES)
+	rm $(ELCFILES)
+
 .PHONY: test-state
-test-state:
+test-state: $(ELCFILES)
 	$(EMACS) -nw -Q -batch -L . -l ert -l test/test-windex-state.el \
 		--eval "(ert-run-tests-batch-and-exit)"
 

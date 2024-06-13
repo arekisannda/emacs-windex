@@ -7,32 +7,6 @@
 (require 'windex-state)
 (require 'ert)
 
-(defmacro windex-test-with-test-state (&rest body)
-  "Run BODY with test `windex-state`."
-  (declare (indent 0))
-  `(progn
-     (let* ((old-state windex-state))
-       (setq windex-state (make-hash-table :test #'equal))
-       ,@body
-       (setq windex-state old-state)
-       )))
-
-(ert-deftest windex-state ()
-  "Test `windex-state`create/get/delete operations."
-  (windex-test-with-test-state
-    (let ((workspace1 "test-workspace-1")
-          (workspace2 "test-workspace-2"))
-      (should (hash-table-empty-p windex-state))
-      (windex-state-create workspace1)
-      (windex-state-create workspace2)
-      (should (windex-state-workspace-p (windex-state-get workspace1)))
-      (should (windex-state-workspace-p (windex-state-get workspace2)))
-      (windex-state-delete workspace1)
-      (should-not (windex-state-workspace-p (gethash workspace1 windex-state)))
-      (should (windex-state-workspace-p (gethash workspace2 windex-state)))
-      (windex-state-delete-all)
-      (should (hash-table-empty-p windex-state)))))
-
 (ert-deftest windex-state-node ()
   "Test `windex-state-node` operations."
   (let ((node1 (make-windex-state-node :value 1 :prev nil :next nil))
@@ -458,47 +432,191 @@ to SET-ACTIVE for window state, WS."
           (should (eq (windex-state-node-prev node2) node1))
           (should (eq (windex-state-node-next node2) nil))))))
 
-(ert-deftest windex-state-workspace-create-new-window ()
-  "Test `windex-state-workspace-create-window` with new window."
-  (let ((ws (make-windex-state-workspace))
-        (window-id "test-window")
-        window)
-    (should-not (windex-state-workspace-get-window ws window-id))
-    (setq window (windex-state-workspace-create-window ws window-id))
-    (should (windex-state-workspace-get-window ws window-id))))
+(defmacro windex-test-with-test-state (windex-state &rest body)
+  "Run BODY with test `windex-state`, WINDEX-STATE."
+  (declare (indent 1))
+  `(progn
+     (let* ((,windex-state (make-windex-state :id "windex-test-state")))
+       (unwind-protect
+           ,@body
+         ))))
 
-(ert-deftest windex-state-workspace-create-existing-window ()
-  "Test `windex-state-workspace-create-window` with existing window."
-  (let ((ws (make-windex-state-workspace))
-        (window-id "test-window")
-        existing-window
-        window)
-    (setq existing-window (windex-state-workspace-create-window ws window-id))
-    (should (windex-state-workspace-get-window ws window-id))
-    (setq window (windex-state-workspace-create-window ws window-id))
-    (should (eq existing-window window))))
+(ert-deftest windex-state-buffer-single-window ()
+  "Test `windex-state` add/delete buffer from single window."
+  (windex-test-with-test-state windex-state
+    (let* ((buffer1 (get-buffer-create "buffer-1"))
+           (window1 "window-1")
+           (windows (windex-state-windows windex-state))
+           (buffers (windex-state-buffers windex-state))
+           window1-state
+           buffer1-windows)
+      (windex-state-add-buffer windex-state window1 buffer1)
+      (should (equal (hash-table-count windows) 1))
+      (should (equal (hash-table-count buffers) 1))
 
-(ert-deftest window-state-workspace-delete-window ()
-  "Test `windex-state-workspace-delete-window`."
-  (let ((ws (make-windex-state-workspace))
-        (window-id "test-window")
-        (window-id-to-delete "test-delete-window"))
-    (windex-state-workspace-create-window ws window-id)
-    (windex-state-workspace-create-window ws window-id-to-delete)
-    (should (equal (hash-table-count (windex-state-workspace-windows ws)) 2))
-    (windex-state-workspace-delete-window ws window-id-to-delete)
-    (should (equal (hash-table-count (windex-state-workspace-windows ws)) 1))
-    (should-not (windex-state-workspace-get-window ws window-id-to-delete))
-    (should (windex-state-workspace-get-window ws window-id))))
+      (setq window1-state (gethash window1 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 1))
 
-(ert-deftest window-state-workspace-clear ()
-  "Test `windex-state-workspace-clear`."
-  (let ((ws (make-windex-state-workspace)))
-    (windex-state-workspace-create-window ws "window1")
-    (windex-state-workspace-create-window ws "window2")
-    (windex-state-workspace-create-window ws "window3")
-    (should (equal (hash-table-count (windex-state-workspace-windows ws)) 3))
-    (windex-state-workspace-clear ws)
-    (should (equal (hash-table-count (windex-state-workspace-windows ws)) 0))))
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should buffer1-windows)
+      (should (gethash window1 buffer1-windows))
+
+      (windex-state-remove-buffer windex-state window1 buffer1)
+      (should (equal (hash-table-count windows) 1))
+      (should (equal (hash-table-count buffers) 0))
+
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 0))
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should-not buffer1-windows)
+      )))
+
+(ert-deftest windex-state-buffer-multiple-windows ()
+  "Test `windex-state` add/delete buffer with multiple windows."
+  (windex-test-with-test-state windex-state
+    (let* ((buffer1 (get-buffer-create "buffer-1"))
+           (window1 "window-1")
+           (window2 "window-2")
+           (windows (windex-state-windows windex-state))
+           (buffers (windex-state-buffers windex-state))
+           window1-state
+           window2-state
+           buffer1-windows)
+      (windex-state-add-buffer windex-state window1 buffer1)
+      (windex-state-add-buffer windex-state window2 buffer1)
+
+      (setq window1-state (gethash window1 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 1))
+
+      (setq window2-state (gethash window2 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window2-state)) 1))
+
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should buffer1-windows)
+      (should (gethash window1 buffer1-windows))
+      (should (gethash window2 buffer1-windows))
+
+      (windex-state-remove-buffer windex-state window1 buffer1)
+      (should (equal (hash-table-count windows) 2))
+      (should (equal (hash-table-count buffers) 1))
+
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 0))
+      (should (equal (hash-table-count (windex-state-window-buffers window2-state)) 1))
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should buffer1-windows)
+      (should-not (gethash window1 buffer1-windows))
+      (should (gethash window2 buffer1-windows))
+      )))
+
+(ert-deftest windex-state-buffer-multiple-windows-by-id ()
+  "Test `windex-state` add/delete buffer with multiple windows by ids."
+  (windex-test-with-test-state windex-state
+    (let* ((buffer1 (get-buffer-create "buffer-1"))
+           (window1 "window-1")
+           (window2 "window-2")
+           (window3 "window-3")
+           (windows (windex-state-windows windex-state))
+           (buffers (windex-state-buffers windex-state))
+           window1-state window2-state window3-state
+           buffer1-windows)
+      (windex-state-add-buffer windex-state window1 buffer1)
+      (windex-state-add-buffer windex-state window2 buffer1)
+      (windex-state-add-buffer windex-state window3 buffer1)
+
+      (setq window1-state (gethash window1 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 1))
+
+      (setq window2-state (gethash window2 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window2-state)) 1))
+
+      (setq window3-state (gethash window3 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window3-state)) 1))
+
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should buffer1-windows)
+      (should (gethash window1 buffer1-windows))
+      (should (gethash window2 buffer1-windows))
+      (should (gethash window3 buffer1-windows))
+
+      (windex-state-remove-buffer-from-windows
+       windex-state
+       buffer1
+       (list window1))
+
+      (should (equal (hash-table-count windows) 3))
+      (should (equal (hash-table-count buffers) 1))
+
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 0))
+      (should (equal (hash-table-count (windex-state-window-buffers window2-state)) 1))
+      (should (equal (hash-table-count (windex-state-window-buffers window3-state)) 1))
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should buffer1-windows)
+      (should-not (gethash window1 buffer1-windows))
+      (should (gethash window2 buffer1-windows))
+      (should (gethash window3 buffer1-windows))
+      )))
+
+(ert-deftest windex-state-buffer-multiple-windows-by-id-all ()
+  "Test `windex-state` add/delete buffer from all windows."
+  (windex-test-with-test-state windex-state
+    (let* ((buffer1 (get-buffer-create "buffer-1"))
+           (window1 "window-1")
+           (window2 "window-2")
+           (window3 "window-3")
+           (windows (windex-state-windows windex-state))
+           (buffers (windex-state-buffers windex-state))
+           window1-state window2-state window3-state
+           buffer1-windows)
+      (windex-state-add-buffer windex-state window1 buffer1)
+      (windex-state-add-buffer windex-state window2 buffer1)
+      (windex-state-add-buffer windex-state window3 buffer1)
+
+      (setq window1-state (gethash window1 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 1))
+
+      (setq window2-state (gethash window2 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window2-state)) 1))
+
+      (setq window3-state (gethash window3 windows))
+      (should (equal (hash-table-count (windex-state-window-buffers window3-state)) 1))
+
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should buffer1-windows)
+      (should (gethash window1 buffer1-windows))
+      (should (gethash window2 buffer1-windows))
+      (should (gethash window3 buffer1-windows))
+
+      (windex-state-remove-buffer-from-windows windex-state buffer1)
+      (should (equal (hash-table-count windows) 3))
+      (should (equal (hash-table-count buffers) 0))
+
+      (should (equal (hash-table-count (windex-state-window-buffers window1-state)) 0))
+      (should (equal (hash-table-count (windex-state-window-buffers window2-state)) 0))
+      (should (equal (hash-table-count (windex-state-window-buffers window3-state)) 0))
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should-not buffer1-windows)
+      )))
+
+(ert-deftest windex-state-clear ()
+  "Test `windex-state` clear."
+  (windex-test-with-test-state windex-state
+    (let* ((buffer1 (get-buffer-create "buffer-1"))
+           (window1 "window-1")
+           (window2 "window-2")
+           (window3 "window-3")
+           (windows (windex-state-windows windex-state))
+           (buffers (windex-state-buffers windex-state)))
+
+      (windex-state-add-buffer windex-state window1 buffer1)
+      (windex-state-add-buffer windex-state window2 buffer1)
+      (windex-state-add-buffer windex-state window3 buffer1)
+
+      (should (equal (hash-table-count windows) 3))
+      (setq buffer1-windows (gethash buffer1 buffers))
+      (should (equal (hash-table-count buffer1-windows) 3))
+
+      (windex-state-clear windex-state)
+      (should (equal (hash-table-count windows) 0))
+      (should (equal (hash-table-count buffers) 0))
+      )))
 
 ;;; test-windex-state.el ends here
