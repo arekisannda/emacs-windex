@@ -1,4 +1,4 @@
-;;; windoex-state.el --- Windex State Methods -*- lexical-binding: t -*-
+;;; windex-state.el --- Windex State Methods -*- lexical-binding: t -*-
 
 ;; Author: Alexander Chan
 ;; Maintainer: Alexander Chan
@@ -225,7 +225,6 @@ Set NODE's `next` as active before it is removed from window state, WS."
         (setf (windex-state-window-active ws) next)
       (setf (windex-state-window-active ws) (windex-state-window-head ws)))))
 
-
 (cl-defun windex-state-window-delete-buffer--set-prev-active (ws node)
   "`windex-state-window-delete-buffer` auxiliary method for setting active.
 Set NODE's `prev` as active before it is removed from window state, WS."
@@ -260,23 +259,22 @@ Set NODE's `prev` as active before it is removed from window state, WS."
     (remhash buffer buffers)
     (cl-return-from windex-state-window-delete-buffer)))
 
+(cl-defun windex-state-window-get-node (ws buffer)
+  "Get node of BUFFER in window state, WS."
+  (let* ((buffers (windex-state-window-buffers ws)))
+    (cl-return-from windex-state-window-get-node (gethash buffer buffers))))
+
 (cl-defun windex-state-window-get-next-buffer (ws buffer)
-  "Get next buffer of BUFFER of window state, WS."
-  (let* ((buffers (windex-state-window-buffers ws))
-         (node (gethash buffer buffers)))
-    (unless node
-      (cl-return-from windex-state-window-get-next-buffer nil))
-    (cl-return-from windex-state-window-get-next-buffer
-      (windex-state-node-next node))))
+  "Get next buffer of BUFFER in window state, WS."
+  (if-let* ((buffers (windex-state-window-buffers ws))
+            (node (gethash buffer buffers)))
+      (windex-state-node-next node)))
 
 (cl-defun windex-state-window-get-prev-buffer (ws buffer)
-  "Get prev buffer of BUFFER of window state, WS."
-  (let* ((buffers (windex-state-window-buffers ws))
-         (node (gethash buffer buffers)))
-    (unless node
-      (cl-return-from windex-state-window-get-prev-buffer nil))
-    (cl-return-from windex-state-window-get-prev-buffer
-      (windex-state-node-prev node))))
+  "Get prev buffer of BUFFER in window state, WS."
+  (if-let* ((buffers (windex-state-window-buffers ws))
+            (node (gethash buffer buffers)))
+      (windex-state-node-prev node)))
 
 (defcustom windex-state-window-auto-add-active nil
   "Determine if `windex-state-window-set-active-buffer` should auto add buffer.
@@ -318,70 +316,116 @@ If the value is nil, do not automatically add the buffer to the window state."
     (clrhash (windex-state-window-buffers ws))
     (cl-return-from windex-state-window-clear ws)))
 
-;;; Workspace
-(cl-defstruct windex-state-workspace
-  name
-  (windows (make-hash-table :test #'equal) :read-only t))
+(cl-defstruct windex-state
+  (id nil :read-only t)
+  ;;;
+  ;; windows ┬── window-id-1 ── window-state-1
+  ;;         ├── ...
+  ;;         └── window-id-n ── window-state-n
+  ;;;
+  (windows (make-hash-table :test #'equal))
+  ;;;
+  ;; buffers ┬── buffer-1 ─┬── window-id-1
+  ;;         ├── ...       ├── ...
+  ;;         ├── ...       └── window-id-n
+  ;;         └── buffer-n ─┬── window-id-1
+  ;;                       ├── ...
+  ;;                       └── window-id-n
+  ;;;
+  (buffers (make-hash-table :test #'eq) :read-only t))
 
-(cl-defun windex-state-workspace-create-window (ws window-id)
-  "Create window state with WINDOW-ID to workspace state, WS."
-  (let* ((windows (windex-state-workspace-windows ws))
-         (window (gethash window-id windows)))
+(defcustom windex-state-get-window-id-function nil
+  "Function for creating window-ids for `Windex-state`."
+  :type 'function
+  :group 'windex-state)
 
+(cl-defun windex-state-get-window-id (id &optional prefix)
+  "Return `windex-state-window` id created from from ID and optional PREFIX."
+  (when (functionp windex-state-get-window-id-function)
+    (cl-return-from windex-state-get-window-id
+      (funcall windex-state-get-window-id-function)))
+
+  (if prefix
+      (format "%s-%s" prefix id)
+    (format "%s" id)))
+
+(cl-defun windex-state-add-buffer (windex-state window-id buffer)
+  "Add BUFFER to window state with WINDOW-ID in WINDEX-STATE."
+  (let* ((windows (windex-state-windows windex-state))
+         (window (gethash window-id windows))
+         (buffers (windex-state-buffers windex-state))
+         (buffer-windows (gethash buffer buffers)))
     (unless window
       (setq window (make-windex-state-window :id window-id))
       (puthash window-id window windows))
+    (windex-state-window-add-buffer window buffer)
 
-    (cl-return-from windex-state-workspace-create-window window)))
+    (unless buffer-windows
+      (setq buffer-windows
+            (puthash buffer (make-hash-table :test #'equal) buffers)))
 
-(cl-defun windex-state-workspace-delete-window (ws window-id)
-  "Remove window state with WINDOW-ID from workspace state, WS."
-  (let* ((windows (windex-state-workspace-windows ws))
-         (window (gethash window-id windows)))
+    (puthash window-id t buffer-windows)))
 
-    (unless window
-      (cl-return-from windex-state-workspace-delete-window))
+(cl-defun windex-state-remove-buffer (windex-state window-id buffer)
+  "Remove BUFFER from window state with WINDOW-ID in WINDEX-STATE."
+  (when-let* ((windows (windex-state-windows windex-state))
+              (window (gethash window-id windows)))
+    (windex-state-window-delete-buffer window buffer)
+    (when-let* ((buffers (windex-state-buffers windex-state))
+              (buffer-windows (gethash buffer buffers)))
+      (remhash window-id buffer-windows)
+      (when (hash-table-empty-p buffer-windows)
+        (remhash buffer buffers)))
+    ))
 
-    ;; clear window state
-    (windex-state-window-clear window)
-    (remhash window-id windows)
+(cl-defun windex-state-remove-buffer-from-windows (windex-state buffer &optional window-ids)
+  "Remove BUFFER from windows in WINDEX-STATE.
 
-    (cl-return-from windex-state-workspace-delete-window)))
+If WINDOWS-IDS nil, remove all BUFFER from all windows."
+  (let* ((windows (windex-state-windows windex-state))
+         (buffers (windex-state-buffers windex-state))
+         (buffer-windows (gethash buffer buffers)))
 
-(cl-defun windex-state-workspace-get-window (ws window-id)
-  "Get window state with WINDOW-ID from workspace state, WS."
-  (let* ((windows (windex-state-workspace-windows ws)))
-    (gethash window-id windows)))
+    (unless buffer-windows
+      ;; buffer not tracked in windex-state
+      (cl-return-from windex-state-remove-buffer-from-windows))
 
-(cl-defun windex-state-workspace-clear (ws)
-  "Clear workspace state, WS."
-  (let ((windows (windex-state-workspace-windows ws)))
-    (cl-loop for window being the hash-values of windows do
-             (windex-state-window-clear window))
-    (clrhash windows)))
+    (unwind-protect
+        (progn
+          (cl-block windex-state-remoe-buffer-from-windows--inner
+            (unless window-ids
+              ;; remove buffer from all tracked windows
+              (cl-loop for window-id being hash-keys of buffer-windows do
+                       (when-let* ((window (gethash window-id windows)))
+                         (windex-state-window-delete-buffer window buffer))
+                       (remhash window-id buffer-windows))
+              (cl-return-from windex-state-remoe-buffer-from-windows--inner))
 
-(defvar windex-state (make-hash-table :test #'equal))
+            (cl-loop for window-id in window-ids do
+                     (when-let* ((node-exists (gethash window-id buffer-windows))
+                                 (window (gethash window-id windows)))
+                       (windex-state-window-delete-buffer window buffer))
+                     (remhash window-id buffer-windows))))
 
-(cl-defun windex-state-create (workspace-id)
-  "Create workspace state with WORKSPACE-ID."
-  (puthash workspace-id (make-windex-state-workspace :name workspace-id)
-           windex-state))
+      (when (hash-table-empty-p buffer-windows) (remhash buffer buffers)))
+    ))
 
-(cl-defun windex-state-delete (workspace-id)
-  "Remove workspace state with WORKSPACE-ID."
-  (let* ((workspace (gethash workspace-id windex-state)))
-    (when workspace
-      (windex-state-workspace-clear workspace)
-      (remhash workspace-id windex-state))))
+(cl-defun windex-state-clear--buffers (windex-state)
+  "Clear WINDEX-STATE buffers."
+  (cl-loop for buffer-table being hash-values of (windex-state-buffers windex-state) do
+           (clrhash buffer-table))
+  (clrhash (windex-state-buffers windex-state)))
 
-(cl-defun windex-state-delete-all ()
-  "Clear `windex` state."
-  (cl-loop for workspace being the hash-keys of windex-state do
-           (windex-state-delete workspace)))
+(cl-defun windex-state-clear--windows (windex-state)
+  "Clear WINDEX-STATE windows."
+  (cl-loop for window-state being hash-values of (windex-state-windows windex-state) do
+           (windex-state-window-clear window-state))
+  (clrhash (windex-state-windows windex-state)))
 
-(cl-defun windex-state-get (workspace-id)
-  "Get workspace state with WORKSPACE-ID."
-  (gethash workspace-id windex-state))
+(cl-defun windex-state-clear (windex-state)
+  "Clear WINDEX-STATE."
+  (windex-state-clear--windows windex-state)
+  (windex-state-clear--buffers windex-state))
 
 (provide 'windex-state)
 

@@ -26,6 +26,8 @@
 
 ;;; Code:
 
+(require 'windex-state)
+
 (provide 'windex)
 
 ;;; windex.el ends here
