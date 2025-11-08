@@ -1,16 +1,16 @@
 EMACS ?= emacs
-ELFILES := windex-state.el windex.el
+ELFILES := windex-utils.el windex-layout windex-purpose.el windex-windmove windex.el
 ELCFILES = $(ELFILES:.el=.elc)
 
-all: test-state
+all: test-windex
 
 .PHONY: clean
 clean: $(ELCFILES)
 	rm $(ELCFILES)
 
-.PHONY: test-state
+.PHONY: test-windex
 test-state: $(ELCFILES)
-	$(EMACS) -nw -Q -batch -L . -l ert -l test/test-windex-state.el \
+	$(EMACS) -nw -Q -batch -L . -l ert -l test/test-windex.el \
 		--eval "(ert-run-tests-batch-and-exit)"
 
 .PHONY: compile
