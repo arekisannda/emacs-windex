@@ -31,6 +31,7 @@
   :prefix "windex-state-")
 
 ;;; buffer node
+;; folded {{{
 (cl-defstruct windex-state-node
   value
   prev
@@ -426,6 +427,7 @@ If WINDOWS-IDS nil, remove all BUFFER from all windows."
   "Clear WINDEX-STATE."
   (windex-state-clear--windows windex-state)
   (windex-state-clear--buffers windex-state))
+;; }}}
 
 (provide 'windex-state)
 
