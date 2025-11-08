@@ -3,7 +3,7 @@
 ;; Author: Alexander Chan
 ;; Maintainer: Alexander Chan
 ;; Version: 0.0.1
-;; Package-Requires: (dependencies)
+;; Package-Requires: ()
 
 
 ;; This file is not part of GNU Emacs
