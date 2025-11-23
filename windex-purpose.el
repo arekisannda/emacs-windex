@@ -20,15 +20,19 @@
 
 (defun windex-purpose--set (&optional window purpose)
   "Set window parameter`window-purpose` for WINDOW to PURPOSE."
-  (if purpose
+  (let* ((purpose-list (windex-purpose--list))
+         (prompt (format "Set purpose: "))
+         (purpose (or purpose (s-trim (completing-read prompt purpose-list (-const t) t))))
+         (purpose (cond ((stringp purpose) (intern purpose))
+                        ((symbolp purpose) purpose)))
+         (activate-fn (plist-get :activate (cdr (assoc purpose windex-purpose-alist)))))
+
+    (if (eq (window-parameter window 'window-purpose) purpose)
+        (windex-purpose--unset window)
+      (windex-purpose--unset window)
       (set-window-parameter window 'window-purpose purpose)
-    (let* ((purpose-list (windex-purpose--list))
-           (prompt (format "Set purpose: "))
-           (purpose (s-trim (completing-read prompt purpose-list (-const t) t)))
-           (sym (intern purpose)))
-      (if (eq (window-parameter window 'window-purpose) sym)
-          (set-window-parameter window 'window-purpose nil)
-        (set-window-parameter window 'window-purpose sym)))))
+      (and (functionp activate-fn) (funcall activate-fn window))
+      )))
 
 (defun windex-purpose--list ()
   "Return list of window purposes."
@@ -42,7 +46,10 @@
 
 (defun windex-purpose--unset (&optional window)
   "Unset window parameter`window-purpose` for WINDOW."
-  (set-window-parameter window 'window-purpose nil))
+  (let* ((purpose (window-parameter window 'window-purpose))
+         (deactivate-fn (plist-get :deactivate (cdr (assoc purpose windex-purpose-alist)))))
+    (set-window-parameter window 'window-purpose nil)
+    (and (functionp deactivate-fn) (funcall deactivate-fn window))))
 
 (defun windex-purpose--get (&optional window)
   "Get value of window parameter `window-purpose.
@@ -61,7 +68,7 @@ With double-prefix PREFIX \\[universal-argument], echo window purpose."
     (_ (windex-purpose--set))))
 
 ;;;###autoload
-(defun windex-window-with-purpose (purpose &optional frame)
+(defun windex-window-with-purpose (&optional purpose frame)
   "Select window with PURPOSE on FRAME.
 FRAME defaults to the selected frame.
 If NOSELECT is nil, select and return window."
@@ -73,7 +80,7 @@ If NOSELECT is nil, select and return window."
                                             (cond ((stringp purpose) (intern purpose))
                                                   ((symbolp purpose) purpose))
                                             frame)))
-        (if (called-interactively-p) (select-window window) window ))))
+        (if (called-interactively-p) (select-window window) window))))
 
 (provide 'windex-purpose)
 
