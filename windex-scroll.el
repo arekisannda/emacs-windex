@@ -64,26 +64,39 @@
   (unless windex-scroll-up-function (error "Scroll function not set"))
   (funcall windex-scroll-up-function windex-scroll-lines))
 
-(defcustom windex-scroll-other-window-selector nil
+(defcustom windex-scroll-frame-selector nil
   "Function used to select other window."
   :type 'function
   :group 'windex-scroll)
 
-(defun windex-scroll-other-down ()
+(defcustom windex-scroll-window-selector nil
+  "Function used to select other window."
+  :type 'function
+  :group 'windex-scroll)
+
+(defun windex-scroll-selector-down ()
   "Scroll other window down."
   (interactive)
-  (windex-with-selector-window windex-scroll-other-window-selector
-    (funcall (or (command-remapping #'scroll-up-command)
-                 #'scroll-up-command)
-             windex-scroll-lines)))
+  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+    (windex-scroll-down)))
 
-(defun windex-scroll-other-up ()
+(defun windex-scroll-selector-up ()
   "Scroll other window up."
   (interactive)
-  (windex-with-selector-window windex-scroll-other-window-selector
-    (funcall (or (command-remapping #'scroll-down-command)
-                 #'scroll-down-command)
-             windex-scroll-lines)))
+  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+    (windex-scroll-up)))
+
+(defun windex-scroll-selector-left ()
+  "Scroll other window left."
+  (interactive)
+  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+    (windex-scroll-left)))
+
+(defun windex-scroll-selector-right ()
+  "Scroll other window right."
+  (interactive)
+  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+    (windex-scroll-right)))
 
 (defun windex-scroll-minibuffer-scroll-other-down ()
   "Scroll other window down."
