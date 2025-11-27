@@ -79,13 +79,18 @@ If FIRST is non-nil, return first window."
         (setq best-window window)))
     best-window))
 
-(defmacro windex-with-selector-window (selector-fn &rest body)
+(defmacro windex-with-selector (frame-selector window-selector &rest body)
   "Run BODY with window returned by SELECTOR-FN."
   (declare (indent 1) (debug t))
-  `(let* ((window (and (functionp ,selector-fn)
-                       (funcall ,selector-fn))))
-     (when window
-       (with-selected-window window ,@body))))
+  `(let* ((frame (window-normalize-frame
+                  (and (functionp ,frame-selector)
+                       (funcall ,frame-selector))))
+          (window (window-normalize-window
+                   (and (functionp ,window-selector)
+                        (funcall ,window-selector)))))
+     (with-selected-frame frame
+       (with-selected-window window
+         ,@body))))
 
 (provide 'windex-utils)
 
