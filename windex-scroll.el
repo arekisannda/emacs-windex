@@ -75,27 +75,35 @@
   :group 'windex-scroll)
 
 (defun windex-scroll-selector-down ()
-  "Scroll other window down."
+  "Scroll selector window down."
   (interactive)
-  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+  (windex-with-selector
+      windex-scroll-frame-selector
+      windex-scroll-window-selector
     (windex-scroll-down)))
 
 (defun windex-scroll-selector-up ()
-  "Scroll other window up."
+  "Scroll selector window up."
   (interactive)
-  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+  (windex-with-selector
+      windex-scroll-frame-selector
+      windex-scroll-window-selector
     (windex-scroll-up)))
 
 (defun windex-scroll-selector-left ()
-  "Scroll other window left."
+  "Scroll selector window left."
   (interactive)
-  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+  (windex-with-selector
+      windex-scroll-frame-selector
+      windex-scroll-window-selector
     (windex-scroll-left)))
 
 (defun windex-scroll-selector-right ()
-  "Scroll other window right."
+  "Scroll selector window right."
   (interactive)
-  (windex-with-selector windex-scroll-frame-selector windex-scroll-window-selector
+  (windex-with-selector
+      windex-scroll-frame-selector
+      windex-scroll-window-selector
     (windex-scroll-right)))
 
 (defun windex-scroll-minibuffer-scroll-other-down ()
