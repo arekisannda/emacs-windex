@@ -16,7 +16,11 @@
   "Minimum `windex-frame' height in lines."
   :type 'integer)
 
-(defun windex-frame-get-dimensions ()
+(defcustom windex-frame-dimension-function #'windex-frame-get-dimensions
+  "Function to calculate the dimension for `windex-frame'."
+  :type 'function)
+
+(defun windex-frame-get-dimensions (&optional buffer)
   "The default dimensions function used by `windex-frame'."
   `((width . ,(min windex-frame-min-width
                    (ceiling (* (frame-width) (/ 2560.0 (display-pixel-width))))))
@@ -37,7 +41,7 @@
                 (left . 0.5)
                 (top . 0.5))
               alist
-              (windex-frame-get-dimensions)
+              (funcall windex-frame-dimension-function buffer)
               ))
             ))
     (with-selected-frame windex-frame--frame
