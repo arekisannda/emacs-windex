@@ -92,6 +92,9 @@ If FIRST is non-nil, return first window."
            ,@body)
        (progn ,@body))))
 
+(defun windex-live-visible-frame-p (frame)
+  (and frame (frame-live-p frame) (frame-visible-p frame)))
+
 (provide 'windex-utils)
 
 ;;; windex-utils.el ends here
