@@ -103,7 +103,7 @@ Display BUFFERS in newly created windows."
                             (or (and (bufferp buffer) buffer)
                                 (get-buffer-create windex-layout--blank-buffer-name)))
          (when (functionp apply-fn)
-           (apply apply-fn window))
+           (funcall apply-fn window))
          (when (and select (not windex-layout--selected-window))
            (setq windex-layout--selected-window window))
          (cdr buffers))
