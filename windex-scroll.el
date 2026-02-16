@@ -120,14 +120,9 @@
   `(defun ,(intern (format "windex-scroll-line-to-%d-ppt" ppt)) ()
      ,(format "Scroll current to %d%% of window" ppt)
      (interactive)
-     (when-let* ((buffer-height (count-lines (point-min) (point-max)))
-                 (_ (> buffer-height (window-height)))
-                 (window-ppt (/ ,ppt 100.0))
-                 (window-start-line (line-number-at-pos (window-start)))
-                 (target-line (+ window-start-line (ceiling (* (window-height) window-ppt))))
-                 (current-line (line-number-at-pos))
-                 (scroll-count (- target-line current-line)))
-       (scroll-down-line scroll-count))))
+     (let ((recenter-positions '(,(/ ppt 100.0))))
+       (message (pp-to-string recenter-positions))
+       (recenter-top-bottom))))
 
 (provide 'windex-scroll)
 
