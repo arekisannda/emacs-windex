@@ -121,7 +121,6 @@
      ,(format "Scroll current to %d%% of window" ppt)
      (interactive)
      (let ((recenter-positions '(,(/ ppt 100.0))))
-       (message (pp-to-string recenter-positions))
        (recenter-top-bottom))))
 
 (provide 'windex-scroll)
