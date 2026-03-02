@@ -102,6 +102,12 @@ Display BUFFERS in newly created windows."
          (set-window-buffer window
                             (or (and (bufferp buffer) buffer)
                                 (get-buffer-create windex-layout--blank-buffer-name)))
+         (with-selected-window window
+           (when (or global-tab-line-mode tab-line-mode)
+             (tab-line-mode 1)
+             (set-window-prev-buffers window nil)
+             (set-window-next-buffers window nil)
+             (force-mode-line-update)))
          (when (functionp apply-fn)
            (funcall apply-fn window))
          (when (and select (not windex-layout--selected-window))
