@@ -20,7 +20,7 @@ the prefix argument is reversed and it selects the new window."
       (let ((no-select (xor (consp arg) windmove-display-no-select)))
         (display-buffer-override-next-command
          (lambda (_buffer alist)
-           (let* ((type 'window)
+           (let* ((type 'reuse)
                   (window (ace-select-window)))
              (cons window type)))
          (lambda (old-window new-window)
