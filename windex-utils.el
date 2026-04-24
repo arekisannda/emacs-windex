@@ -23,8 +23,7 @@ WINDOW can be any window."
   (walk-windows
    (lambda (window)
      (when (seq-some (lambda (fn) (funcall fn window)) filter-functions)
-       (unless (window-parameter window 'no-delete-other-windows)
-         (delete-window window))))
+       (delete-window window)))
    'no-minibuf
    nil))
 
