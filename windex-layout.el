@@ -145,14 +145,15 @@ Restore WINDOW-STATES in window layouts."
     (setq windex-layout--selected-window nil)))
 
 ;;;###autoload
-(defun windex-layout-apply (&optional restore-states)
-  "Select predefined layouts."
+(defun windex-layout-apply (&optional blankp)
+  "Select predefined layouts.
+The flag BLANKP indicates whether or not to use existing window states."
   (interactive (list current-prefix-arg))
   (let* ((layouts (mapcar #'windex-layout--create-candidate windex-layout-alist))
          (completion-extra-properties '(:annotation-function windex-layout--annotation-fn))
          (prompt (format "Choose layout: "))
          (layout (s-trim (completing-read prompt layouts (-const t) t)))
-         (window-states (and restore-states (windex-layout--retrieve-main-window-states))))
+         (window-states (unless blankp (windex-layout--retrieve-main-window-states))))
 
     (windex-layout--run-recipe (intern layout) window-states)))
 
